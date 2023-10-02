@@ -7,22 +7,8 @@ import argparse
 
 dtmf = {(697, 1209): "1", (697, 1336): "2", (697, 1477): "3", (770, 1209): "4", (770, 1336): "5", (770, 1477): "6", (852, 1209): "7", (852, 1336): "8", (852, 1477): "9", (941, 1209): "*", (941, 1336): "0", (941, 1477): "#", (697, 1633): "A", (770, 1633): "B", (852, 1633): "C", (941, 1633): "D"}
 
-def DTMFdecoder(file):
-    parser = argparse.ArgumentParser(description="Extract phone numbers from an audio recording of the dial tones.")
-    parser.add_argument("-v", "--verbose", help="show a complete timeline", action="store_true")
-    parser.add_argument("-l", "--left", help="left channel only (if the sound is stereo)", action="store_true")
-    parser.add_argument("-r", "--right", help="right channel only (if the sound is stereo)", action="store_true")
-    parser.add_argument("-d", "--debug", help="show graphs to debug", action="store_true")
-    parser.add_argument("-t", type=int, metavar="F", help="acceptable frequency error (in hertz, 20 by default)", default=20)
+def DTMFdecoder(file, verbose=False, left=True, right=True, debug=False, i=0.04, t=20):
 
-
-    parser.add_argument("-i", type=float, metavar='T', help="process by T seconds intervals (0.04 by default)", default=0.04)
-
-    # parser.add_argument('file', type=argparse.FileType('r'))
-
-    args = parser.parse_args()
-
-    # file = args.file.name
     try:
         fps, data = wavfile.read(file)
     except FileNotFoundError:
@@ -34,7 +20,7 @@ def DTMFdecoder(file):
         exit()
 
 
-    if args.left and not args.right:
+    if left and not right:
         if len(data.shape) == 2 and data.shape[1] == 2:
             data = np.array([i[0] for i in data])
         elif len(data.shape) == 1:
@@ -43,7 +29,7 @@ def DTMFdecoder(file):
             print ("Warning: The sound is not mono and not stereo ("+str(data.shape[1])+" canals)... so the -l option was ignored.")
 
 
-    elif args.right and not args.left:
+    elif right and not left:
         if len(data.shape) == 2 and data.shape[1] == 2:
             data = np.array([i[1] for i in data])
         elif len(data.shape) == 1:
@@ -55,14 +41,14 @@ def DTMFdecoder(file):
         if len(data.shape) == 2: 
             data = data.sum(axis=1) # stereo
 
-    precision = args.i
+    precision = i
 
     duration = len(data)/fps
 
     step = int(len(data)//(duration//precision))
 
-    debug = args.debug
-    verbose = args.verbose
+    debug = debug
+    verbose = verbose
     c = ""
     number = ""
     if debug:
@@ -103,7 +89,7 @@ def DTMFdecoder(file):
 
             lf = freq[np.where(amp == max(amp))[0][0]]
 
-            delta = args.t
+            delta = t
             best = 0
 
             for f in [697, 770, 852, 941]:
@@ -129,7 +115,7 @@ def DTMFdecoder(file):
 
             hf = freq[np.where(amp == max(amp))[0][0]]
 
-            delta = args.t
+            delta = t
             best = 0
 
             for f in [1209, 1336, 1477, 1633]:
