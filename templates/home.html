@@ -4,49 +4,91 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
-    <title>Drag and Drop File Upload with Bootstrap</title>
+    <title>DTMF Decoder by iView labs</title>
     <link href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css" rel="stylesheet">
 </head>
 
 <body>
-
     <div class="container mt-5">
-        <form action="/uploadFile" method="post" enctype="multipart/form-data">
-            <div class="card">
-                <div class="card-body">
-                    <h5 class="card-title">Drag and Drop File Upload</h5>
-                    <p class="card-text">Drag & drop a file or click to select one</p>
-                    <div class="custom-file">
-                        <input type="file" name="fileInput" class="custom-file-input" id="fileInput" accept=".wav" required>
-                        <label class="custom-file-label" for="fileInput">Choose file</label>
-                        <small>Please upload .wav file only !</small>
-                    </div>
+        <div class="card">
+            <div class="card-body">
+                <h5 class="card-title">DTMF Decoder</h5>
+                <p class="card-text">Drag & drop a file or click to select one</p>
+                <div class="custom-file">
+                    <input type="file" name="fileInput" class="custom-file-input" id="fileInput" accept=".wav,.mp3">
+                    <label class="custom-file-label" for="fileInput">Choose file</label>
+                    <small>Please upload audio file only !</small>
                 </div>
             </div>
-            <div class="container d-flex flex-row-reverse mt-2">
-                <button class="btn-primary" style="width: fit-content;">Submit</button>
-            </div>
-            <div class="container">
-                {% if data %}
-                    <strong>Data: </strong> {{data.number}}
-                {% elif error %}
-                    <strong>Error: </strong> {{error.error}}
-                {% endif %}
-            </div>
-        </form>
+        </div>
+        <div class="container d-flex flex-row-reverse mt-2">
+            <button class="btn-primary" style="width: fit-content;" onclick="decodeAudioFile()">Submit</button>
+        </div>
+        <div class="container" id="output">
+        </div>
     </div>
 
     <script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.9.3/dist/umd/popper.min.js"></script>
     <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
-
+    <script src="../static/DTMFDecoder.js"></script>
+    <script src="../static/Goertzel.js"></script>
     <script>
-        // Add event listener for when a file is selected
+        const output = document.getElementById("output");
+        const SAMPLERATE = 8000
+        let audioBuffer;
+        let audioFile;
+
         document.getElementById('fileInput').addEventListener('change', function (event) {
-            var fileName = event.target.files[0].name;
+            audioFile = event.target.files[0];
+            var fileName = audioFile.name;
             var label = document.querySelector('.custom-file-label');
             label.innerText = fileName;
         });
+
+        const decodeAudioFile = () => {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)({
+                sampleRate: SAMPLERATE
+            });
+            const fileReader = new FileReader();
+            fileReader.onload = () => {
+                audioContext.decodeAudioData(fileReader.result, buffer => {
+                    audioBuffer = buffer;
+                    decode();
+                }, e => {
+                    console.log(e.err);
+                });
+            }
+            if (audioFile) {
+                fileReader.readAsArrayBuffer(audioFile);
+            } else {
+                console.error("Something went wrong")
+            }
+        }
+
+        const decode = () => {
+            const secLength = 6;
+            output.innerHTML = ""
+            const dtmfDecoder = new DTMFDecoder({
+                energyThreshold: 0.05,
+                sampleRate: SAMPLERATE
+            });
+            const bufferSize = 320;
+            const pcmData = audioBuffer.getChannelData(0);
+            const pcmDataLength = pcmData.length - bufferSize;
+            let decoded = "";
+            let previous = "";
+            for (let i = 0, j = 1; i <= pcmDataLength; i += bufferSize) {
+                const buffer = pcmData.subarray(i, i + bufferSize);
+                const current = dtmfDecoder.processBuffer(buffer);
+                if (previous !== current) {
+                    decoded += current;
+                    previous = current;
+                }
+            }
+            output.innerHTML += "<br><br><b>Data:</b> " + decoded;
+        }
+
     </script>
 
 </body>
